@@ -1,4 +1,4 @@
-import { auth, db } from "@/lib/firebase";
+import { auth, db } from "../../lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import jwt from "jsonwebtoken";
@@ -16,11 +16,11 @@ export async function POST(req) {
       );
     }
 
-    // 1️⃣ Create Firebase Auth user
+    // Create user in firebase authentication
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // 2️⃣ Save user to Firestore (same pattern as your example)
+    // Saving users to firestore 
     await setDoc(doc(db, "users", user.uid), {
       name,
       email: user.email,
@@ -42,7 +42,7 @@ export async function POST(req) {
       { expiresIn: process.env.EXPIRES_IN }
     );
 
-    // 4️⃣ Correct redirect for React Native
+    // Redirecting after user signup
     return NextResponse.json(
       {
         message: "Signup successful",
