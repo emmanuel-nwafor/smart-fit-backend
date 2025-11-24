@@ -1,5 +1,4 @@
-import { auth, db } from "../../lib/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth, db, signInWithEmailAndPassword } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
@@ -15,51 +14,65 @@ export async function POST(req) {
       );
     }
 
-    // User authentication via firebase
+    // Authenticate the user with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Checking users existence in DB
-    const docRef = doc(db, "users", user.uid);
-    const userDoc = await getDoc(docRef);
+    // Fetch the user data from Firestore
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
 
-    if (!userDoc.exists()) {
+    if (!userSnap.exists()) {
       return NextResponse.json(
         { error: "User not found in database" },
         { status: 404 }
       );
     }
 
-    const data = userDoc.data();
+    const userData = userSnap.data();
 
-    // Token generation
+    // Generate a JWT token
     const token = jwt.sign(
       {
         userId: user.uid,
         email: user.email,
-        role: data.role || "user",
-        status: data.status || "active",
-        ...data,
+        role: userData.role || "user",
+        status: userData.status || "active",
+        profileCompleted: userData.profileCompleted || false,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.EXPIRES_IN }
     );
 
-    // Token returning and redirect
+    // Determine where to redirect based on profile completion
+    const redirectTo = userData.profileCompleted ? "/dashboard" : "/auth/profile-complete";
+
+    // Return the login response
     return NextResponse.json({
       message: "Login successful",
       uid: user.uid,
       email: user.email,
-      role: data.role || "user",
-      status: data.status || "active",
+      role: userData.role || "user",
+      status: userData.status || "active",
+      profileCompleted: userData.profileCompleted || false,
       token,
-      redirect: "/dashboard",
-    });
+      redirect: redirectTo,
+    }, { status: 200 });
 
   } catch (error) {
     console.error("Login error:", error);
+
+    let friendlyMessage = "Login failed";
+    if (error.code === "auth/user-not-found") {
+      friendlyMessage = "No account found with this email.";
+    } else if (error.code === "auth/wrong-password") {
+      friendlyMessage = "Incorrect password.";
+    } else if (error.code === "auth/invalid-email") {
+      friendlyMessage = "Invalid email address.";
+    }
+
     return NextResponse.json(
-      { error: error.message || "Login failed" },
+      { error: friendlyMessage },
       { status: 400 }
     );
   }
