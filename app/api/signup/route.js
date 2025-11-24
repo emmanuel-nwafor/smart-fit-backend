@@ -45,7 +45,7 @@ export async function POST(req) {
         message: "Account created successfully!",
         uid: user.uid,
         email: user.email,
-        redirect: "/login",
+        redirect: "/auth/login",
       },
       { status: 201 }
     );

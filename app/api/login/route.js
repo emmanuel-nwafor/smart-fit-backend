@@ -33,7 +33,7 @@ export async function POST(req) {
 
     const userData = userSnap.data();
 
-    // Generate JWT token (only on login)
+    // Generate JWT token 
     const token = jwt.sign(
       {
         userId: user.uid,
