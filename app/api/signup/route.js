@@ -1,12 +1,11 @@
+// app/api/signup/route.js
 import { auth, db, createUserWithEmailAndPassword } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
-import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { email, password, name, role } = body;
+    const { email, password, name, role } = await req.json();
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -15,11 +14,9 @@ export async function POST(req) {
       );
     }
 
-    // Create user in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Save user to Firestore
     await setDoc(doc(db, "users", user.uid), {
       name,
       email: user.email,
@@ -29,47 +26,22 @@ export async function POST(req) {
       createdAt: new Date().toISOString(),
     });
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: user.uid,
-        email: user.email,
-        role: role || "user",
-        name,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.EXPIRES_IN }
-    );
-
-    // Redirect to profile-complete after signup
     return NextResponse.json(
       {
         message: "Signup successful",
         uid: user.uid,
-        email: user.email,
-        role: role || "user",
-        token,
-        redirect: "/auth/profile-complete",
+        redirect: "/login",
       },
       { status: 201 }
     );
-
   } catch (error) {
     console.error("Signup error:", error);
 
-    let friendlyMessage = "Signup failed";
+    let msg = "Signup failed";
+    if (error.code === "auth/email-already-in-use") msg = "Email already registered";
+    else if (error.code === "auth/weak-password") msg = "Password too weak";
+    else if (error.code === "auth/invalid-email") msg = "Invalid email";
 
-    if (error.code === "auth/email-already-in-use") {
-      friendlyMessage = "This email is already registered.";
-    } else if (error.code === "auth/invalid-email") {
-      friendlyMessage = "Invalid email address.";
-    } else if (error.code === "auth/weak-password") {
-      friendlyMessage = "Weak password.";
-    }
-
-    return NextResponse.json(
-      { error: friendlyMessage },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

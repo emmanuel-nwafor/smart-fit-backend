@@ -1,5 +1,7 @@
-import { auth, db, signInWithEmailAndPassword } from "@/lib/firebase";
+// app/api/login/route.js
+import { auth, signInWithEmailAndPassword } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
@@ -14,54 +16,70 @@ export async function POST(req) {
       );
     }
 
+    // Sign in with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
+    // Fetch user data from Firestore
+    const userDocRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userDocRef);
 
     if (!userSnap.exists()) {
       return NextResponse.json(
-        { error: "User not found in database" },
+        { error: "User profile not found" },
         { status: 404 }
       );
     }
 
     const userData = userSnap.data();
 
+    // Generate JWT token (only on login)
     const token = jwt.sign(
       {
         userId: user.uid,
         email: user.email,
+        name: userData.name,
         role: userData.role || "user",
-        status: userData.status || "active",
         profileCompleted: userData.profileCompleted || false,
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.EXPIRES_IN }
+      { expiresIn: process.env.EXPIRES_IN || "7d" }
     );
 
-    const redirectTo = userData.profileCompleted ? "/dashboard" : "/auth/profile-complete";
+    const redirectTo = userData.profileCompleted
+      ? "/dashboard"
+      : "/auth/profile-complete";
 
-    return NextResponse.json({
-      message: "Login successful",
-      uid: user.uid,
-      email: user.email,
-      role: userData.role || "user",
-      status: userData.status || "active",
-      profileCompleted: userData.profileCompleted || false,
-      token,
-      redirect: redirectTo,
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        message: "Login successful",
+        token,
+        user: {
+          uid: user.uid,
+          email: user.email,
+          name: userData.name,
+          role: userData.role || "user",
+          profileCompleted: userData.profileCompleted || false,
+        },
+        redirect: redirectTo,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Login error:", error);
 
-    let friendlyMessage = "Login failed";
-    if (error.code === "auth/user-not-found") friendlyMessage = "No account found with this email.";
-    else if (error.code === "auth/wrong-password") friendlyMessage = "Incorrect password.";
-    else if (error.code === "auth/invalid-email") friendlyMessage = "Invalid email address.";
+    let message = "Login failed. Please try again.";
 
-    return NextResponse.json({ error: friendlyMessage }, { status: 400 });
+    if (error.code === "auth/user-not-found") {
+      message = "No account found with this email.";
+    } else if (error.code === "auth/wrong-password") {
+      message = "Incorrect password.";
+    } else if (error.code === "auth/invalid-email") {
+      message = "Invalid email address.";
+    } else if (error.code === "auth/too-many-requests") {
+      message = "Too many attempts. Try again later.";
+    }
+
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
