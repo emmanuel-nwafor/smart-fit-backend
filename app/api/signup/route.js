@@ -35,7 +35,7 @@ export async function POST(req) {
         uid: user.uid,
         redirect: "/login",
       },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (error) {
     console.error("Signup error:", error);
