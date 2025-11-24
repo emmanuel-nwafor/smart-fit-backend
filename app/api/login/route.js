@@ -14,11 +14,9 @@ export async function POST(req) {
       );
     }
 
-    // Authenticate the user with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Fetch the user data from Firestore
     const userRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userRef);
 
@@ -31,7 +29,6 @@ export async function POST(req) {
 
     const userData = userSnap.data();
 
-    // Generate a JWT token
     const token = jwt.sign(
       {
         userId: user.uid,
@@ -44,10 +41,8 @@ export async function POST(req) {
       { expiresIn: process.env.EXPIRES_IN }
     );
 
-    // Determine where to redirect based on profile completion
     const redirectTo = userData.profileCompleted ? "/dashboard" : "/auth/profile-complete";
 
-    // Return the login response
     return NextResponse.json({
       message: "Login successful",
       uid: user.uid,
@@ -63,17 +58,10 @@ export async function POST(req) {
     console.error("Login error:", error);
 
     let friendlyMessage = "Login failed";
-    if (error.code === "auth/user-not-found") {
-      friendlyMessage = "No account found with this email.";
-    } else if (error.code === "auth/wrong-password") {
-      friendlyMessage = "Incorrect password.";
-    } else if (error.code === "auth/invalid-email") {
-      friendlyMessage = "Invalid email address.";
-    }
+    if (error.code === "auth/user-not-found") friendlyMessage = "No account found with this email.";
+    else if (error.code === "auth/wrong-password") friendlyMessage = "Incorrect password.";
+    else if (error.code === "auth/invalid-email") friendlyMessage = "Invalid email address.";
 
-    return NextResponse.json(
-      { error: friendlyMessage },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: friendlyMessage }, { status: 400 });
   }
 }

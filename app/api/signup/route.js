@@ -1,4 +1,3 @@
-import { auth, db } from "@/lib/firebase";
 import { auth, db, createUserWithEmailAndPassword } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import jwt from "jsonwebtoken";
@@ -16,11 +15,11 @@ export async function POST(req) {
       );
     }
 
-    // Create user in firebase authentication
+    // Create user in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Saving users to firestore 
+    // Save user to Firestore
     await setDoc(doc(db, "users", user.uid), {
       name,
       email: user.email,
@@ -30,7 +29,7 @@ export async function POST(req) {
       createdAt: new Date().toISOString(),
     });
 
-    // Create JWT token
+    // Generate JWT token
     const token = jwt.sign(
       {
         userId: user.uid,
@@ -42,7 +41,7 @@ export async function POST(req) {
       { expiresIn: process.env.EXPIRES_IN }
     );
 
-    // Redirecting after user signup
+    // Redirect to profile-complete after signup
     return NextResponse.json(
       {
         message: "Signup successful",
@@ -50,7 +49,7 @@ export async function POST(req) {
         email: user.email,
         role: role || "user",
         token,
-        redirect: "/auth/profile-complete", 
+        redirect: "/auth/profile-complete",
       },
       { status: 201 }
     );
