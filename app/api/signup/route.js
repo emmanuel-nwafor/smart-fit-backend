@@ -5,14 +5,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req) {
   try {
-    const { email, password, name, role } = await req.json();
-
-    if (!email || !password || !name) {
-      return NextResponse.json(
-        { error: "Email, password, and name are required" },
-        { status: 400 }
-      );
-    }
+    const { name, email, password } = await req.json();
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -20,28 +13,21 @@ export async function POST(req) {
     await setDoc(doc(db, "users", user.uid), {
       name,
       email: user.email,
-      role: role || "user",
+      role: "user",
       status: "active",
       profileCompleted: false,
       createdAt: new Date().toISOString(),
     });
 
     return NextResponse.json(
-      {
-        message: "Signup successful",
-        uid: user.uid,
-        redirect: "/login",
-      },
+      { message: "Signup successful", redirect: "/login" },
       { status: 201 }
     );
   } catch (error) {
     console.error("Signup error:", error);
-
-    let msg = "Signup failed";
-    if (error.code === "auth/email-already-in-use") msg = "Email already registered";
-    else if (error.code === "auth/weak-password") msg = "Password too weak";
-    else if (error.code === "auth/invalid-email") msg = "Invalid email";
-
-    return NextResponse.json({ error: msg }, { status: 400 });
+    return NextResponse.json(
+      { error: error.code === "auth/email-already-in-use" ? "Email already in use" : "Signup failed" },
+      { status: 400 }
+    );
   }
 }
