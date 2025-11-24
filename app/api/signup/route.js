@@ -1,5 +1,5 @@
 import { auth, db } from "@/lib/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth, db, createUserWithEmailAndPassword } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
