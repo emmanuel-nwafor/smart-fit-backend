@@ -1,4 +1,4 @@
-import { auth, db } from "../../lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import jwt from "jsonwebtoken";
@@ -30,7 +30,7 @@ export async function POST(req) {
       createdAt: new Date().toISOString(),
     });
 
-    // 3️⃣ Create JWT
+    // Create JWT token
     const token = jwt.sign(
       {
         userId: user.uid,
