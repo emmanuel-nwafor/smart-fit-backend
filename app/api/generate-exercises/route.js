@@ -1,9 +1,11 @@
-// app/api/generate-exercises/route.js
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-// Reusable data
+// ─────────────────────────────────────────────────────────────
+// STATIC POOL DATA
+// ─────────────────────────────────────────────────────────────
+
 const muscleGroups = [
   "Chest","Back","Shoulders","Biceps","Triceps","Legs","Glutes","Core",
   "Full Body","Arms","Calves","Forearms","Upper Back","Lower Back",
@@ -21,8 +23,6 @@ const namePool = [
   "Pull-Up Beast","Push-Up Pro","Plank God","Hip Thrust Hero","Calf Crusher",
   "Overhead Destroyer","Beast Mode Rows","Diamond Push-Ups","Glute Fire","Core Burner",
   "Skull Crusher","Hammer Curl","Romanian Deadlift","Goblet Squat","Face Pull",
-
-  // Added more to make smart-fit more dynamic
   "Mountain Crusher","Iron Titan Rows","Shadow Squat","Viking Press",
   "Dragon Lunge","Atomic Push-Up","Steel Core Crunch","Beast Lift",
   "Fury Deadlift","Titan Chest Press","Hammer Blast Curl","Grit Row",
@@ -35,13 +35,14 @@ const namePool = [
 const repSchemes = [
   "8-12","10-15","12-15","15-20","6-10",
   "30-45 sec","45-60 sec","60-90 sec",
-
-  // Added more to make smart-fit more dynamic
   "5-8","3-6 (strength)","20-30 (endurance)","AMRAP","EMOM 10",
   "8x3 (power)","4x12","5x5","3x20","Drop Set",
   "Superset","Pyramid Set","Negative Reps"
 ];
 
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 
 const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const generateName = () => random(namePool);
@@ -50,21 +51,56 @@ const generateReps = () => random(repSchemes);
 const generateDescription = (name, muscle) =>
   `${name} — savage ${muscle.toLowerCase()} builder. Strict form, full burn, massive gains.`;
 
+
+// ─────────────────────────────────────────────────────────────
+// MAIN POST HANDLER
+// ─────────────────────────────────────────────────────────────
+
 export async function POST(request) {
+  let body;
+
+  // -------- SAFE JSON PARSE --------
   try {
-    const body = await request.json();
+    const text = await request.text();
+    body = text ? JSON.parse(text) : null;
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Invalid JSON format sent to backend." },
+      { status: 400 }
+    );
+  }
 
-    // Logic for generation of workouts
-    if (body.action === "generate_ai_workouts") {
-      const { count, imageUrl } = body;
+  // -------- BASIC VALIDATION --------
+  if (!body || !body.action) {
+    return NextResponse.json(
+      { error: "Missing 'action' in request body." },
+      { status: 400 }
+    );
+  }
 
-      if (!count || !imageUrl) {
-        return NextResponse.json(
-          { error: "Count and imageUrl required." },
-          { status: 400 }
-        );
-      }
+  // =======================================================================
+  // ACTION: GENERATE AI WORKOUTS
+  // =======================================================================
 
+  if (body.action === "generate_ai_workouts") {
+    const { count, imageUrl } = body;
+
+    // Validate inputs
+    if (!count || count < 1) {
+      return NextResponse.json(
+        { error: "You must request at least 1 workout." },
+        { status: 400 }
+      );
+    }
+
+    if (!imageUrl) {
+      return NextResponse.json(
+        { error: "Image URL (local imageUri) is required." },
+        { status: 400 }
+      );
+    }
+
+    try {
       const items = [];
 
       for (let i = 0; i < count; i++) {
@@ -74,15 +110,14 @@ export async function POST(request) {
         const equipment = random(equipmentList);
         const description = generateDescription(name, muscle);
 
-        // Save to Firestore
+        // Save a temporary record to Firestore
         const docRef = await addDoc(collection(db, "exercises"), {
           name,
           description,
           muscleGroup: muscle,
           reps,
           equipment,
-          // Image uploaded by admin
-          imageUrl,
+          imageUrl, // still the local URI for preview
           isGenerated: true,
           isAdminCreated: true,
           likes: 0,
@@ -106,12 +141,22 @@ export async function POST(request) {
         message: `${count} AI workouts generated!`,
         items,
       });
+
+    } catch (err) {
+      console.error("GENERATION ERROR:", err);
+      return NextResponse.json(
+        { error: "Failed to generate workouts." },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
+
+  // =======================================================================
+  // INVALID ACTION
+  // =======================================================================
+
+  return NextResponse.json(
+    { error: "Invalid action." },
+    { status: 400 }
+  );
 }
