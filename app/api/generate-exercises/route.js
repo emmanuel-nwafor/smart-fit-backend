@@ -51,7 +51,6 @@ const generateReps = () => random(repSchemes);
 const generateDescription = (name, muscle) =>
   `${name} — savage ${muscle.toLowerCase()} builder. Strict form, full burn, massive gains.`;
 
-
 // ─────────────────────────────────────────────────────────────
 // MAIN POST HANDLER
 // ─────────────────────────────────────────────────────────────
@@ -85,7 +84,6 @@ export async function POST(request) {
   if (body.action === "generate_ai_workouts") {
     const { count, imageUrl } = body;
 
-    // Validate inputs
     if (!count || count < 1) {
       return NextResponse.json(
         { error: "You must request at least 1 workout." },
@@ -117,7 +115,7 @@ export async function POST(request) {
           muscleGroup: muscle,
           reps,
           equipment,
-          imageUrl, // still the local URI for preview
+          imageUrl,
           isGenerated: true,
           isAdminCreated: true,
           likes: 0,
@@ -140,12 +138,56 @@ export async function POST(request) {
         success: true,
         message: `${count} AI workouts generated!`,
         items,
-      });
+      }, { status: 200 });
 
     } catch (err) {
       console.error("GENERATION ERROR:", err);
       return NextResponse.json(
         { error: "Failed to generate workouts." },
+        { status: 500 }
+      );
+    }
+  }
+
+  // =======================================================================
+  // ACTION: SAVE ADMIN WORKOUT
+  // =======================================================================
+
+  if (body.action === "save_workout") {
+    try {
+      const { name, description, muscleGroup, reps, equipment, imageUrl } = body;
+
+      if (!name || !description || !muscleGroup || !reps || !equipment || !imageUrl) {
+        return NextResponse.json(
+          { error: "All workout fields are required." },
+          { status: 400 }
+        );
+      }
+
+      const docRef = await addDoc(collection(db, "exercises"), {
+        name,
+        description,
+        muscleGroup,
+        reps,
+        equipment,
+        imageUrl,
+        isGenerated: false,
+        isAdminCreated: true,
+        likes: 0,
+        usedCount: 0,
+        createdAt: serverTimestamp(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Workout saved successfully!",
+        id: docRef.id,
+      }, { status: 200 });
+
+    } catch (err) {
+      console.error("SAVE WORKOUT ERROR:", err);
+      return NextResponse.json(
+        { error: "Failed to save workout." },
         { status: 500 }
       );
     }
