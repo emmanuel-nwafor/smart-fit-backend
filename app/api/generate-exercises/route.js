@@ -1,53 +1,47 @@
 // app/api/generate-exercises/route.js
+
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-const UNSPLASH_URL = "https://source.unsplash.com/featured/600x800?";
+const equipment = ["DumBbells", "Barbell", "Bodyweight", "Cable", "Machine", "Kettlebell"];
 
-const imageQueries = {
-  Chest: "chest+workout,bench+press,gym",
-  Back: "pull+up,lat+pulldown,back+muscles,gym",
-  Shoulders: "shoulder+press,delts,gym+shoulders",
-  Biceps: "bicep+curl,dumbbell+curl,arms",
-  Triceps: "triceps+extension,skull+crusher,arms",
-  Legs: "squat,leg+press,quads,gym",
-  Glutes: "hip+thrust,glute+bridge,glutes+workout",
-  Core: "plank,abs+workout,core+training",
-  "Full Body": "full+body+workout,hiit,functional+training",
-  Arms: "arm+workout,biceps+triceps,gym",
-  Calves: "calf+raises,standing+calf,gym",
-};
-
-const generateImageUrl = (muscleGroup) => {
-  const query = imageQueries[muscleGroup] || "fitness,gym,workout";
-  return `${UNSPLASH_URL}${query}&sig=${Date.now()}${Math.random()}`;
-};
-
-const muscleGroups = Object.keys(imageQueries);
-const equipment = ["Dumbbells", "Barbell", "Bodyweight", "Cable", "Machine", "Kettlebell"];
+const muscleGroups = [
+  "Chest", "Back", "Shoulders", "Biceps", "Triceps",
+  "Legs", "Glutes", "Core", "Full Body", "Arms", "Calves"
+];
 
 const generateExerciseName = () => {
   const names = [
     "Power Press", "Iron Grip Curl", "Deadlift Destroyer", "Squat King", "Lunge Master",
-    "Pull-Up Beast", "Push-Up Pro", "Plank God", "Hip Thrust Hero", "Calf Crusher"
+    "Pull-Up Beast", "Push-Up Pro", "Plank God", "Hip Thrust Hero", "Calf Crusher",
+    "Overhead Crusher", "Beast Mode Rows", "Diamond Push-Ups", "Glute Fire", "Core Burner"
   ];
   return names[Math.floor(Math.random() * names.length)];
 };
 
 const generateReps = () => {
-  const options = ["8-12", "10-15", "12-15", "15-20", "30-45 sec", "45-60 sec"];
+  const options = ["8-12", "10-15", "12-15", "15-20", "30-45 sec", "45-60 sec", "60-90 sec"];
   return options[Math.floor(Math.random() * options.length)];
 };
 
 const generateDescription = (name, muscle) => {
-  return `Perfect ${muscle.toLowerCase()} builder. ${name} targets strength and tone with proper form.`;
+  return `${name} — High-intensity ${muscle.toLowerCase()} builder. Focus on form, feel the burn, and level up your gains.`;
 };
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const exercisesToAdd = Math.min(Math.max(1, Number(body.count) || 6), 50);
+    const customImageUrl = body.customImageUrl?.trim();
+
+    // Must have a Cloudinary image URL
+    if (!customImageUrl) {
+      return NextResponse.json(
+        { error: "No image uploaded. Please upload an image first." },
+        { status: 400 }
+      );
+    }
 
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,22 +61,22 @@ export async function POST(request) {
         isGenerated: true,
         likes: 0,
         usedCount: 0,
-        tags: ["inclusive", "all-genders", "strength", "tone", "confidence"],
-        imageUrl: generateImageUrl(muscle),
+        tags: ["inclusive", "all-genders", "strength", "tone", "confidence", "admin-upload"],
+        imageUrl: customImageUrl, // Only your uploaded image
       };
 
       await addDoc(collection(db, "exercises"), exercise);
-      await wait(2000);
+      await wait(2000); // Still needed for Firestore write limits
     }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully added ${exercisesToAdd} new exercises!`,
+      message: `BOOM! ${exercisesToAdd} premium exercises created with your image!`,
     });
   } catch (error) {
-    console.error("Generation failed:", error);
+    console.error("Exercise generation failed:", error);
     return NextResponse.json(
-      { error: "Failed to generate exercises" },
+      { error: "Failed to generate exercises", details: error.message },
       { status: 500 }
     );
   }
