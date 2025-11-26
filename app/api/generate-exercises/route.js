@@ -3,10 +3,10 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-// Unsplash Source API (free, no key needed for basic use)
+// Unsplash Source API
 const UNSPLASH_URL = "https://source.unsplash.com/featured/600x800?";
 
-// Map muscle groups to search terms for beautiful images
+// Mapping of muscles exercises
 const imageQueries = {
   Chest: "chest+workout,bench+press,gym",
   Back: "pull+up,lat+pulldown,back+muscles,gym",
@@ -23,13 +23,15 @@ const imageQueries = {
 
 const generateImageUrl = (muscleGroup) => {
   const query = imageQueries[muscleGroup] || "fitness,gym,workout";
-  // Returns a random, high-quality, unique image every time
   return `${UNSPLASH_URL}${query}&sig=${Date.now()}${Math.random()}`;
 };
 
 export async function POST() {
   try {
     const exercisesToAdd = 6;
+
+    // Delay helper
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     for (let i = 0; i < exercisesToAdd; i++) {
       const muscle = muscleGroups[Math.floor(Math.random() * muscleGroups.length)];
@@ -48,16 +50,18 @@ export async function POST() {
         likes: 0,
         usedCount: 0,
         tags: ["inclusive", "all-genders", "strength", "tone", "confidence"],
-        // REAL, BEAUTIFUL, UNIQUE IMAGE
         imageUrl: generateImageUrl(muscle),
       };
 
       await addDoc(collection(db, "exercises"), exercise);
+
+      // Wait 2 seconds before next one
+      await wait(2000);
     }
 
     return NextResponse.json({
       success: true,
-      message: `Added ${exercisesToAdd} stunning new exercises with real images!`,
+      message: `Added ${exercisesToAdd} stunning new exercises with 2-second intervals!`,
     });
   } catch (error) {
     console.error("Exercise generation failed:", error);
