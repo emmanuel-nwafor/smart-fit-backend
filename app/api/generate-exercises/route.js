@@ -1,83 +1,97 @@
-// app/api/generate-exercises/route.js
-
+// app/api/admin-generate/route.js
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-const equipment = ["DumBbells", "Barbell", "Bodyweight", "Cable", "Machine", "Kettlebell"];
-
-const muscleGroups = [
-  "Chest", "Back", "Shoulders", "Biceps", "Triceps",
-  "Legs", "Glutes", "Core", "Full Body", "Arms", "Calves"
+// Reusable data
+const muscleGroups = ["Chest","Back","Shoulders","Biceps","Triceps","Legs","Glutes","Core","Full Body","Arms","Calves"];
+const equipmentList = ["Dumbbells","Barbell","Bodyweight","Cable","Machine","Kettlebell"];
+const namePool = [
+  "Power Press","Iron Grip Curl","Deadlift Destroyer","Squat King","Lunge Master",
+  "Pull-Up Beast","Push-Up Pro","Plank God","Hip Thrust Hero","Calf Crusher",
+  "Overhead Destroyer","Beast Mode Rows","Diamond Push-Ups","Glute Fire","Core Burner",
+  "Skull Crusher","Hammer Curl","Romanian Deadlift","Goblet Squat","Face Pull"
 ];
+const repSchemes = ["8-12","10-15","12-15","15-20","6-10","30-45 sec","45-60 sec","60-90 sec"];
 
-const generateExerciseName = () => {
-  const names = [
-    "Power Press", "Iron Grip Curl", "Deadlift Destroyer", "Squat King", "Lunge Master",
-    "Pull-Up Beast", "Push-Up Pro", "Plank God", "Hip Thrust Hero", "Calf Crusher",
-    "Overhead Crusher", "Beast Mode Rows", "Diamond Push-Ups", "Glute Fire", "Core Burner"
-  ];
-  return names[Math.floor(Math.random() * names.length)];
-};
+const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-const generateReps = () => {
-  const options = ["8-12", "10-15", "12-15", "15-20", "30-45 sec", "45-60 sec", "60-90 sec"];
-  return options[Math.floor(Math.random() * options.length)];
-};
-
-const generateDescription = (name, muscle) => {
-  return `${name} — High-intensity ${muscle.toLowerCase()} builder. Focus on form, feel the burn, and level up your gains.`;
-};
+const generateName = () => random(namePool);
+const generateReps = () => random(repSchemes);
+const generateDescription = (name, muscle) => 
+  `${name} — savage ${muscle.toLowerCase()} builder. Strict form, full burn, massive gains.`;
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const exercisesToAdd = Math.min(Math.max(1, Number(body.count) || 6), 50);
-    const customImageUrl = body.customImageUrl?.trim();
 
-    // Must have a Cloudinary image URL
-    if (!customImageUrl) {
-      return NextResponse.json(
-        { error: "No image uploaded. Please upload an image first." },
-        { status: 400 }
-      );
+    // 1. Create Category
+    if (body.action === "create_category") {
+      const { name, description, imageUrl } = body;
+      if (!name?.trim() || !imageUrl?.trim()) {
+        return NextResponse.json({ error: "Name and image required" }, { status: 400 });
+      }
+
+      await addDoc(collection(db, "exercise_categories"), {
+        name: name.trim(),
+        description: (description || "").trim(),
+        imageUrl,
+        createdAt: serverTimestamp(),
+      });
+
+      return NextResponse.json({ success: true, message: "Category created!" });
     }
 
-    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    // 2. Create Single Workout
+    if (body.action === "create_workout") {
+      const { 
+        name, description, imageUrl, categoryId,
+        muscleGroup, reps, equipment, useAISuggestions 
+      } = body;
 
-    for (let i = 0; i < exercisesToAdd; i++) {
-      const muscle = muscleGroups[Math.floor(Math.random() * muscleGroups.length)];
-      const equip = equipment[Math.floor(Math.random() * equipment.length)];
+      if (!name?.trim() || !imageUrl?.trim() || !categoryId) {
+        return NextResponse.json({ error: "Name, image and category required" }, { status: 400 });
+      }
 
-      const exercise = {
-        name: generateExerciseName(),
-        muscleGroup: muscle,
-        equipment: equip,
-        reps: generateReps(),
-        description: generateDescription(generateExerciseName(), muscle),
-        difficulty: ["Beginner", "Intermediate", "Advanced"][Math.floor(Math.random() * 3)],
-        isInclusive: true,
-        createdAt: serverTimestamp(),
-        isGenerated: true,
+      // Validate category exists
+      const catRef = doc(db, "exercise_categories", categoryId);
+      const catSnap = await getDoc(catRef);
+      if (!catSnap.exists()) {
+        return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+      }
+
+      // Optional "AI" enhancement (pure logic)
+      const finalName = useAISuggestions 
+        ? `${name.trim()} Pro` 
+        : name.trim();
+
+      const finalDesc = useAISuggestions && !description?.trim()
+        ? generateDescription(finalName, muscleGroup || random(muscleGroups))
+        : (description || "").trim();
+
+      await addDoc(collection(db, "exercises"), {
+        name: finalName,
+        description: finalDesc,
+        categoryId,
+        categoryName: catSnap.data().name,
+        muscleGroup: (muscleGroup || "").trim() || random(muscleGroups),
+        reps: (reps || "").trim() || generateReps(),
+        equipment: (equipment || "").trim() || random(equipmentList),
+        imageUrl,
+        isGenerated: false,
+        isAdminCreated: true,
         likes: 0,
         usedCount: 0,
-        tags: ["inclusive", "all-genders", "strength", "tone", "confidence", "admin-upload"],
-        imageUrl: customImageUrl, // Only your uploaded image
-      };
+        createdAt: serverTimestamp(),
+      });
 
-      await addDoc(collection(db, "exercises"), exercise);
-      await wait(2000); // Still needed for Firestore write limits
+      return NextResponse.json({ success: true, message: "Workout created!" });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `BOOM! ${exercisesToAdd} premium exercises created with your image!`,
-    });
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+
   } catch (error) {
-    console.error("Exercise generation failed:", error);
-    return NextResponse.json(
-      { error: "Failed to generate exercises", details: error.message },
-      { status: 500 }
-    );
+    console.error(error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
