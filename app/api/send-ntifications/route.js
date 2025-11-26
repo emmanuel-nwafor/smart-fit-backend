@@ -1,31 +1,9 @@
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET;
 
 export async function POST(req) {
   try {
-    // 1️⃣ Authentication
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Authorization token missing." }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const token = authHeader.split(" ")[1];
-    try {
-      jwt.verify(token, JWT_SECRET);
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired token." }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2️⃣ Parse body safely
+    // Parse body safely
     let body = {};
     try {
       const text = await req.text();
@@ -47,7 +25,7 @@ export async function POST(req) {
 
     console.log("Sending notification:", { title, message });
 
-    // 3️⃣ Save to Firestore
+    // Save to Firestore
     await addDoc(collection(db, "notifications"), {
       title,
       message,
