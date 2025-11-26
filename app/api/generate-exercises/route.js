@@ -2,10 +2,7 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-// ─────────────────────────────────────────────────────────────
-// STATIC POOL DATA
-// ─────────────────────────────────────────────────────────────
-
+// Pool data for random generation
 const muscleGroups = [
   "Chest","Back","Shoulders","Biceps","Triceps","Legs","Glutes","Core",
   "Full Body","Arms","Calves","Forearms","Upper Back","Lower Back",
@@ -40,10 +37,6 @@ const repSchemes = [
   "Superset","Pyramid Set","Negative Reps"
 ];
 
-// ─────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────
-
 const random = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const generateName = () => random(namePool);
 const generateReps = () => random(repSchemes);
@@ -51,14 +44,9 @@ const generateReps = () => random(repSchemes);
 const generateDescription = (name, muscle) =>
   `${name} — savage ${muscle.toLowerCase()} builder. Strict form, full burn, massive gains.`;
 
-// ─────────────────────────────────────────────────────────────
-// MAIN POST HANDLER
-// ─────────────────────────────────────────────────────────────
-
 export async function POST(request) {
   let body;
 
-  // -------- SAFE JSON PARSE --------
   try {
     const text = await request.text();
     body = text ? JSON.parse(text) : null;
@@ -69,7 +57,7 @@ export async function POST(request) {
     );
   }
 
-  // -------- BASIC VALIDATION --------
+  // Action validation
   if (!body || !body.action) {
     return NextResponse.json(
       { error: "Missing 'action' in request body." },
@@ -77,10 +65,7 @@ export async function POST(request) {
     );
   }
 
-  // =======================================================================
-  // ACTION: GENERATE AI WORKOUTS
-  // =======================================================================
-
+  // Automatice workout generation
   if (body.action === "generate_ai_workouts") {
     const { count, imageUrl } = body;
 
@@ -149,10 +134,7 @@ export async function POST(request) {
     }
   }
 
-  // =======================================================================
-  // ACTION: SAVE ADMIN WORKOUT
-  // =======================================================================
-
+  // Save workout by admins
   if (body.action === "save_workout") {
     try {
       const { name, description, muscleGroup, reps, equipment, imageUrl } = body;
@@ -192,11 +174,7 @@ export async function POST(request) {
       );
     }
   }
-
-  // =======================================================================
-  // INVALID ACTION
-  // =======================================================================
-
+  // For all invalid actions
   return NextResponse.json(
     { error: "Invalid action." },
     { status: 400 }
