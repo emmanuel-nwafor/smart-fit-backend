@@ -3,10 +3,8 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 
-// Unsplash Source API
 const UNSPLASH_URL = "https://source.unsplash.com/featured/600x800?";
 
-// Mapping of muscles exercises
 const imageQueries = {
   Chest: "chest+workout,bench+press,gym",
   Back: "pull+up,lat+pulldown,back+muscles,gym",
@@ -26,11 +24,31 @@ const generateImageUrl = (muscleGroup) => {
   return `${UNSPLASH_URL}${query}&sig=${Date.now()}${Math.random()}`;
 };
 
-export async function POST() {
-  try {
-    const exercisesToAdd = 6;
+const muscleGroups = Object.keys(imageQueries);
+const equipment = ["Dumbbells", "Barbell", "Bodyweight", "Cable", "Machine", "Kettlebell"];
 
-    // Delay helper
+const generateExerciseName = () => {
+  const names = [
+    "Power Press", "Iron Grip Curl", "Deadlift Destroyer", "Squat King", "Lunge Master",
+    "Pull-Up Beast", "Push-Up Pro", "Plank God", "Hip Thrust Hero", "Calf Crusher"
+  ];
+  return names[Math.floor(Math.random() * names.length)];
+};
+
+const generateReps = () => {
+  const options = ["8-12", "10-15", "12-15", "15-20", "30-45 sec", "45-60 sec"];
+  return options[Math.floor(Math.random() * options.length)];
+};
+
+const generateDescription = (name, muscle) => {
+  return `Perfect ${muscle.toLowerCase()} builder. ${name} targets strength and tone with proper form.`;
+};
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const exercisesToAdd = Math.min(Math.max(1, Number(body.count) || 6), 50);
+
     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     for (let i = 0; i < exercisesToAdd; i++) {
@@ -54,17 +72,15 @@ export async function POST() {
       };
 
       await addDoc(collection(db, "exercises"), exercise);
-
-      // Wait 2 seconds before next one
       await wait(2000);
     }
 
     return NextResponse.json({
       success: true,
-      message: `Added ${exercisesToAdd} stunning new exercises with 2-second intervals!`,
+      message: `Successfully added ${exercisesToAdd} new exercises!`,
     });
   } catch (error) {
-    console.error("Exercise generation failed:", error);
+    console.error("Generation failed:", error);
     return NextResponse.json(
       { error: "Failed to generate exercises" },
       { status: 500 }
