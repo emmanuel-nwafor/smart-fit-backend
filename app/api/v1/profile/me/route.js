@@ -1,5 +1,3 @@
-// app/api/v1/profile/me/route.js
-
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { NextResponse } from "next/server";
@@ -33,7 +31,6 @@ export async function GET(request) {
     }
 
     const userId = decoded.userId;
-
     if (!userId) {
       return NextResponse.json(
         { error: "Invalid token payload." },
@@ -52,13 +49,24 @@ export async function GET(request) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      profile: {
-        id: userSnap.id,
-        ...userSnap.data(),
-      },
-    });
+    const data = userSnap.data();
+
+    // Added more fields to profile response.
+    const profile = {
+      id: userSnap.id,
+      name: data.name || "",
+      email: data.email || "",
+      avatar: data.avatar || null,
+      bio: data.bio || "",
+      workoutsCompleted: data.workoutsCompleted || 0,
+      distance: data.distance || 0,
+      weeklyAvg: data.weeklyAvg || "0h",
+      role: data.role || decoded.role || "user",
+      profileCompleted: data.profileCompleted ?? decoded.profileCompleted ?? false,
+      createdAt: data.createdAt?.toMillis?.() || Date.now(),
+    };
+
+    return NextResponse.json({ success: true, profile }, { status: 200 });
   } catch (error) {
     console.error("PROFILE FETCH ERROR:", error);
     return NextResponse.json(
