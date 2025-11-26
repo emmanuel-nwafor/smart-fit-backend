@@ -9,41 +9,58 @@ const ADMIN_EMAIL = "admin_2025@gmail.com";
 
 export async function POST(req) {
   try {
-    // authentication check
+    // Authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Authorization token missing." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authorization token missing." },
+        { status: 401 }
+      );
     }
 
     const token = authHeader.split(" ")[1];
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
-      return NextResponse.json({ error: "Invalid or expired token." }, { status: 401 });
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid or expired token." },
+        { status: 401 }
+      );
     }
 
     if (decoded.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-      return NextResponse.json({ error: "Unauthorized. Only admin can send notifications." }, { status: 403 });
+      return NextResponse.json(
+        { error: "Unauthorized. Only admin can send notifications." },
+        { status: 403 }
+      );
     }
 
-    // Parsing body
+    // PARSE BODY SAFELY
+    let bodyText = await req.text(); 
+    console.log("Raw body received:", bodyText);
+
     let body;
     try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      body = JSON.parse(bodyText || "{}"); 
+    } catch (err) {
+      console.error("JSON parse error:", err);
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 }
+      );
     }
 
     const { title, message } = body;
 
     if (!title || !message) {
-      return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Title and message are required." },
+        { status: 400 }
+      );
     }
 
-    console.log("Sending notification:", { title, message });
-
-    // Saving to firestore
+    // SAVE TO FIRESTORE
     await addDoc(collection(db, "notifications"), {
       title,
       message,
@@ -51,9 +68,17 @@ export async function POST(req) {
       createdAt: serverTimestamp(),
     });
 
-    return NextResponse.json({ success: true, message: "Notification sent to all users." });
+    console.log("Notification saved:", { title, message });
+
+    return NextResponse.json({
+      success: true,
+      message: "Notification sent to all users.",
+    });
   } catch (error) {
     console.error("SEND NOTIFICATION ERROR:", error);
-    return NextResponse.json({ error: "Failed to send notification." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to send notification." },
+      { status: 500 }
+    );
   }
 }
