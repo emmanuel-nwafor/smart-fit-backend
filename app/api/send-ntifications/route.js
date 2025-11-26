@@ -1,23 +1,21 @@
-// app/api/admin/send-notifications/route.js
+// app/api/send-notifications/route.js
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET;
-// email for only admin || only admin email accepted
 const ADMIN_EMAIL = "admin_2025@gmail.com";
 
 export async function POST(req) {
   try {
+    // authentication check
     const authHeader = req.headers.get("Authorization");
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Authorization token missing." }, { status: 401 });
     }
 
     const token = authHeader.split(" ")[1];
-
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
@@ -25,18 +23,27 @@ export async function POST(req) {
       return NextResponse.json({ error: "Invalid or expired token." }, { status: 401 });
     }
 
-    // Only admin can send notifications
     if (decoded.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
       return NextResponse.json({ error: "Unauthorized. Only admin can send notifications." }, { status: 403 });
     }
 
-    const { title, message } = await req.json();
+    // Parsing body
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    const { title, message } = body;
 
     if (!title || !message) {
       return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
     }
 
-    // Save notification to Firestore
+    console.log("Sending notification:", { title, message });
+
+    // Saving to firestore
     await addDoc(collection(db, "notifications"), {
       title,
       message,
