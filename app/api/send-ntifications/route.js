@@ -1,4 +1,3 @@
-// app/api/send-notifications/route.js
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { NextResponse } from "next/server";
@@ -9,7 +8,7 @@ const ADMIN_EMAIL = "admin_2025@gmail.com";
 
 export async function POST(req) {
   try {
-    // ---------------- Authentication ----------------
+    // 1️⃣ Authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Authorization token missing." }, { status: 401 });
@@ -19,21 +18,20 @@ export async function POST(req) {
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
+    } catch {
       return NextResponse.json({ error: "Invalid or expired token." }, { status: 401 });
     }
 
+    // 2️⃣ Admin only
     if (decoded.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
       return NextResponse.json({ error: "Unauthorized. Only admin can send notifications." }, { status: 403 });
     }
 
-    // ---------------- Parse JSON Body ----------------
-    let rawBody = await req.text();
-    console.log("Raw body received:", rawBody || "<empty>");
-
+    // 3️⃣ Parse body safely
     let body;
     try {
-      body = JSON.parse(rawBody || "{}");
+      const text = await req.text();
+      body = text ? JSON.parse(text) : {};
     } catch (err) {
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
@@ -44,9 +42,9 @@ export async function POST(req) {
       return NextResponse.json({ error: "Title and message are required." }, { status: 400 });
     }
 
-    // ---------------- Save to Firestore ----------------
     console.log("Sending notification:", { title, message });
 
+    // 4️⃣ Save to Firestore
     await addDoc(collection(db, "notifications"), {
       title,
       message,
@@ -55,7 +53,6 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ success: true, message: "Notification sent to all users." });
-
   } catch (error) {
     console.error("SEND NOTIFICATION ERROR:", error);
     return NextResponse.json({ error: "Failed to send notification." }, { status: 500 });
