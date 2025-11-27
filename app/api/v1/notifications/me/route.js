@@ -28,17 +28,19 @@ export async function GET(req) {
     // Map notifications with safe defaults
     const notifications = notifSnap.docs.map((doc) => {
       const data = doc.data();
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
       return {
         id: doc.id,
         title: data.title || "No title",
         message: data.message || "No message",
         read: data.read ?? false,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(0),
+        createdAt,
+        timestamp: createdAt.getTime(), 
       };
     });
 
     // Sort newest first
-    notifications.sort((a, b) => b.createdAt - a.createdAt);
+    notifications.sort((a, b) => b.timestamp - a.timestamp);
 
     return NextResponse.json(
       {
