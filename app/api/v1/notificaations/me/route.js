@@ -25,20 +25,23 @@ export async function GET(req) {
     const notifRef = collection(db, "users", userId, "notifications");
     const notifSnap = await getDocs(notifRef);
 
-    // Map notifications with safe defaults
     const notifications = notifSnap.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
-        title: data.title || "No title",
-        message: data.message || "No message",
-        read: data.read ?? false,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(0),
+        title: data.title,
+        message: data.message,
+        read: data.read || false,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
       };
     });
 
     // Sort newest first
-    notifications.sort((a, b) => b.createdAt - a.createdAt);
+    notifications.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt) : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt) : 0;
+      return bTime - aTime;
+    });
 
     return NextResponse.json(
       {
