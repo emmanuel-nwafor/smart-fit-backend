@@ -1,4 +1,4 @@
-// /api/v1/notifications/route.js
+// /api/v1/notifications/me/route.js
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import jwt from "jsonwebtoken";
