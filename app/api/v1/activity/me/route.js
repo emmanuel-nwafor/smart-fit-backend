@@ -32,7 +32,7 @@ export async function GET(req) {
         exerciseId: data.exerciseId,
         name: data.name,
         muscleGroup: data.muscleGroup,
-        reps: data.reps, // String (e.g. "Negative Reps")
+        reps: data.reps, 
 
         description: data.description,
 
@@ -42,7 +42,7 @@ export async function GET(req) {
       };
     });
 
-    // Sort by date (newest first)
+    // Sort by date
     activities.sort((a, b) => {
       const aDate = a.date ? new Date(a.date) : 0;
       const bDate = b.date ? new Date(b.date) : 0;

@@ -1,8 +1,16 @@
 // /api/v1/activity/route.js
 import { db } from "@/lib/firebase";
-import { doc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
+
+// Custom motivational messages
+const MOTIVATIONS = [
+  "Don't give up! You can do it!",
+  "Keep pushing! Every rep counts!",
+  "Almost there! Stay strong!",
+  "Remember why you started!",
+];
 
 export async function POST(req) {
   try {
@@ -19,7 +27,6 @@ export async function POST(req) {
     }
 
     const { userId } = decoded;
-
     const body = await req.json();
     const { exerciseId, name, muscleGroup, reps, description, date } = body;
 
@@ -38,12 +45,29 @@ export async function POST(req) {
       createdAt: serverTimestamp(),
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Activity saved successfully",
-      id: docRef.id,
-    }, { status: 200 });
+    // Check if the exercise is unfinished
+    if (reps.toLowerCase().includes("negative") || reps === "0") {
+      const notificationsRef = collection(db, "users", userId, "notifications");
+      const motivationalMessage =
+        MOTIVATIONS[Math.floor(Math.random() * MOTIVATIONS.length)];
 
+      await addDoc(notificationsRef, {
+        title: "Incomplete Exercise",
+        message: `${name} was not completed. ${motivationalMessage}`,
+        exerciseId,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Activity saved successfully",
+        id: docRef.id,
+      },
+      { status: 200 }
+    );
   } catch (err) {
     console.error("Activity save error:", err);
     return NextResponse.json({ error: "Failed to save activity" }, { status: 500 });
