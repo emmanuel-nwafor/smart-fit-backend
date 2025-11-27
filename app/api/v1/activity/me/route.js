@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(req) {
   try {
+    // Get token
     const token = req.headers.get("authorization")?.replace("Bearer ", "");
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,27 +20,34 @@ export async function GET(req) {
 
     const { userId } = decoded;
 
-    // Retrieving users activities from firestore.
-    const activityRef = collection(db, "users", userId, "activity");
-    const snapshot = await getDocs(activityRef);
+    // Firestore reference
+    const ref = collection(db, "users", userId, "activity");
+    const snap = await getDocs(ref);
 
-    const activities = snapshot.docs.map((doc) => {
+    const activities = snap.docs.map((doc) => {
       const data = doc.data();
 
       return {
         id: doc.id,
-        exerciseId: data.exerciseId || "",
-        name: data.name || "",
-        muscleGroup: data.muscleGroup || "",
-        reps: data.reps || 0,
-        description: data.description || "",
-        date: data.date?.toDate ? data.date.toDate() : data.date,
+        exerciseId: data.exerciseId,
+        name: data.name,
+        muscleGroup: data.muscleGroup,
+        reps: data.reps, // String (e.g. "Negative Reps")
+
+        description: data.description,
+
+        // Convert timestamps safely
+        date: data.date?.toDate ? data.date.toDate() : null,
         createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
       };
     });
 
-    // Sorting
-    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort by date (newest first)
+    activities.sort((a, b) => {
+      const aDate = a.date ? new Date(a.date) : 0;
+      const bDate = b.date ? new Date(b.date) : 0;
+      return bDate - aDate;
+    });
 
     return NextResponse.json(
       {
@@ -50,10 +58,7 @@ export async function GET(req) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("ACTIVITY FETCH ERROR:", err);
-    return NextResponse.json(
-      { error: "Failed to load activity" },
-      { status: 500 }
-    );
+    console.error("ACTIVITY GET ERROR:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
